@@ -36,7 +36,7 @@ jobs:
         run: git clone --depth 1 https://github.com/pelya/commandergenius.git builder
 
       - name: Prepare OpenTTD 15.3 source and dependencies
-        run: ./scripts/prepare-builder.sh "$GITHUB_WORKSPACE/builder"
+        run: bash ./scripts/prepare-builder.sh "$GITHUB_WORKSPACE/builder"
 
       - name: Restore native dependency cache
         uses: actions/cache@v4
@@ -84,4 +84,3 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 30
-
