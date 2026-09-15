@@ -1,0 +1,87 @@
+name: Build OpenTTD 15.3 Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-android.yml"
+      - "patches/**"
+      - "scripts/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build-arm64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      APP_NAME: openttd
+      ARCH_LIST: arm64-v8a
+      ANDROID_BUILD_TOOLS: 36.0.0
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout build project
+        uses: actions/checkout@v5
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: "17"
+          distribution: temurin
+
+      - name: Check out Android SDL build system
+        run: git clone --depth 1 https://github.com/pelya/commandergenius.git builder
+
+      - name: Prepare OpenTTD 15.3 source and dependencies
+        run: ./scripts/prepare-builder.sh "$GITHUB_WORKSPACE/builder"
+
+      - name: Restore native dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            builder/project/jni/iconv/include
+            builder/project/jni/iconv/lib
+            builder/project/jni/icuuc/include
+            builder/project/jni/icuuc/lib
+            builder/project/jni/icuuc/share/icu
+            builder/project/obj
+          key: openttd-15.3-android-arm64-native-v1
+
+      - name: Configure Android project
+        working-directory: builder
+        run: |
+          export PATH="$ANDROID_NDK_HOME:$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS:$PATH"
+          ./changeAppSettings.sh
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > project/local.properties
+          echo "proguard.config=proguard.cfg;proguard-local.cfg" >> project/local.properties
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -noprompt \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=OpenTTD Android Debug,O=OpenTTD Android,C=BE"
+
+      - name: Build signed ARM64 APK
+        working-directory: builder
+        run: |
+          export PATH="$ANDROID_NDK_HOME:$ANDROID_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS:$PATH"
+          ./build.sh release openttd
+
+      - name: Collect APK and build information
+        run: |
+          mkdir -p dist
+          cp builder/project/app/build/outputs/apk/release/app-release.apk dist/OpenTTD-15.3-Android-arm64.apk
+          sha256sum dist/OpenTTD-15.3-Android-arm64.apk > dist/SHA256SUMS.txt
+          cp README.md dist/BUILD-INFO.md
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenTTD-15.3-Android-arm64
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
