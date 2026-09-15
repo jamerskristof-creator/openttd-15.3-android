@@ -1,0 +1,219 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 2891bee..0926369 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -75,6 +75,7 @@ add_custom_target(find_version
+                 -DREV_MAJOR=${PROJECT_VERSION_MAJOR}
+                 -DREV_MINOR=${PROJECT_VERSION_MINOR}
+                 -DWINDOWS=${WIN32}
++                $<$<BOOL:ANDROID>:-DANDROID=TRUE>
+                 -P "${CMAKE_SOURCE_DIR}/cmake/scripts/FindVersion.cmake"
+         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+         BYPRODUCTS ${GENERATED_SOURCE_FILES}
+@@ -107,6 +108,10 @@ if(OPTION_TOOLS_ONLY)
+     return()
+ endif()
+ 
++if(ANDROID)
++    include(AndroidSDL)
++endif()
++
+ if(APPLE)
+ 	# Avoid searching for headers in Frameworks, and libraries in LIBDIR.
+ 	set(CMAKE_FIND_FRAMEWORK LAST)
+@@ -237,7 +242,13 @@ include_directories(${CMAKE_SOURCE_DIR}/src/3rdparty/squirrel/include)
+ include(MSVCFilters)
+ 
+ add_library(openttd_lib OBJECT ${GENERATED_SOURCE_FILES})
+-add_executable(openttd WIN32)
++if(ANDROID)
++    set(BINARY_NAME application)
++    target_link_libraries(openttd_lib log z)
++    add_library(openttd SHARED)
++else()
++    add_executable(openttd WIN32)
++endif()
+ add_executable(openttd_test)
+ set_target_properties(openttd PROPERTIES OUTPUT_NAME "${BINARY_NAME}")
+ # All other files are added via target_sources()
+@@ -340,6 +351,10 @@ endif()
+ 
+ include(3rdparty/llvm/CheckAtomic)
+ 
++if(ANDROID)
++    target_link_libraries(openttd_lib ${EXPAT_LIBRARY})
++endif()
++
+ if(APPLE)
+     link_package(Iconv TARGET Iconv::Iconv)
+ 
+diff --git a/cmake/FindFontconfig.cmake b/cmake/FindFontconfig.cmake
+index 68c557b..24dcb34 100644
+--- a/cmake/FindFontconfig.cmake
++++ b/cmake/FindFontconfig.cmake
+@@ -33,27 +33,29 @@ This will define the following variables in your project:
+ #]=======================================================================]
+ 
+ 
+-# use pkg-config to get the directories and then use these values
+-# in the FIND_PATH() and FIND_LIBRARY() calls
+-find_package(PkgConfig QUIET)
+-pkg_check_modules(PKG_FONTCONFIG QUIET fontconfig)
+-set(Fontconfig_COMPILE_OPTIONS ${PKG_FONTCONFIG_CFLAGS_OTHER})
+-set(Fontconfig_VERSION ${PKG_FONTCONFIG_VERSION})
+-
+-find_path( Fontconfig_INCLUDE_DIR
+-  NAMES
+-    fontconfig/fontconfig.h
+-  HINTS
+-    ${PKG_FONTCONFIG_INCLUDE_DIRS}
+-    /usr/X11/include
+-)
++if(NOT ANDROID)
++  # use pkg-config to get the directories and then use these values
++  # in the FIND_PATH() and FIND_LIBRARY() calls
++  find_package(PkgConfig QUIET)
++  pkg_check_modules(PKG_FONTCONFIG QUIET fontconfig)
++  set(Fontconfig_COMPILE_OPTIONS ${PKG_FONTCONFIG_CFLAGS_OTHER})
++  set(Fontconfig_VERSION ${PKG_FONTCONFIG_VERSION})
++
++  find_path( Fontconfig_INCLUDE_DIR
++    NAMES
++      fontconfig/fontconfig.h
++    HINTS
++      ${PKG_FONTCONFIG_INCLUDE_DIRS}
++      /usr/X11/include
++  )
+ 
+-find_library( Fontconfig_LIBRARY
+-  NAMES
+-    fontconfig
+-  PATHS
+-    ${PKG_FONTCONFIG_LIBRARY_DIRS}
+-)
++  find_library( Fontconfig_LIBRARY
++    NAMES
++      fontconfig
++    PATHS
++      ${PKG_FONTCONFIG_LIBRARY_DIRS}
++  )
++endif()
+ 
+ if(Fontconfig_INCLUDE_DIR AND NOT Fontconfig_VERSION)
+   file(STRINGS ${Fontconfig_INCLUDE_DIR}/fontconfig/fontconfig.h _contents REGEX "^#define[ \t]+FC_[A-Z]+[ \t]+[0-9]+$")
+diff --git a/cmake/FindICU.cmake b/cmake/FindICU.cmake
+index efb3ba3..09077bd 100644
+--- a/cmake/FindICU.cmake
++++ b/cmake/FindICU.cmake
+@@ -39,17 +39,21 @@ foreach(MOD_NAME IN LISTS ICU_FIND_COMPONENTS)
+     endif()
+     pkg_check_modules(PC_ICU_${MOD_NAME} QUIET icu-${MOD_NAME})
+ 
+-    # Check the libraries returned by pkg-config really exist.
+-    unset(PC_LIBRARIES)
+-    foreach(LIBRARY IN LISTS PC_ICU_${MOD_NAME}_LIBRARIES)
++    if(NOT ANDROID)
++        # Check the libraries returned by pkg-config really exist.
++        unset(PC_LIBRARIES)
++        foreach(LIBRARY IN LISTS PC_ICU_${MOD_NAME}_LIBRARIES)
++            unset(PC_LIBRARY CACHE)
++            find_library(PC_LIBRARY NAMES ${LIBRARY})
++            if(NOT PC_LIBRARY)
++                unset(PC_ICU_${MOD_NAME}_FOUND)
++            endif()
++            list(APPEND PC_LIBRARIES ${PC_LIBRARY})
++        endforeach()
+         unset(PC_LIBRARY CACHE)
+-        find_library(PC_LIBRARY NAMES ${LIBRARY})
+-        if(NOT PC_LIBRARY)
+-            unset(PC_ICU_${MOD_NAME}_FOUND)
+-        endif()
+-        list(APPEND PC_LIBRARIES ${PC_LIBRARY})
+-    endforeach()
+-    unset(PC_LIBRARY CACHE)
++    else()
++        list(APPEND PC_LIBRARIES ${PC_ICU_${MOD_NAME}_LIBRARY})
++    endif()
+ 
+     if(${PC_ICU_${MOD_NAME}_FOUND})
+         set(ICU_COMPONENT_FOUND TRUE)
+diff --git a/cmake/InstallAndPackage.cmake b/cmake/InstallAndPackage.cmake
+index 78c10a1..785872e 100644
+--- a/cmake/InstallAndPackage.cmake
++++ b/cmake/InstallAndPackage.cmake
+@@ -21,6 +21,9 @@ install(TARGETS openttd
+         RUNTIME
+             DESTINATION ${BINARY_DESTINATION_DIR}
+             COMPONENT Runtime
++        LIBRARY
++            DESTINATION ${BINARY_DESTINATION_DIR}
++            COMPONENT Runtime
+         )
+ 
+ if (NOT EMSCRIPTEN)
+diff --git a/cmake/scripts/FindVersion.cmake b/cmake/scripts/FindVersion.cmake
+index cbfb466..0df880e 100644
+--- a/cmake/scripts/FindVersion.cmake
++++ b/cmake/scripts/FindVersion.cmake
+@@ -13,7 +13,7 @@ endif()
+ 
+ find_package(Git QUIET)
+ # ${CMAKE_SOURCE_DIR}/.git may be a directory or a regular file
+-if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
++if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git" AND NOT ANDROID)
+     # Make sure LC_ALL is set to something desirable
+     set(SAVED_LC_ALL "$ENV{LC_ALL}")
+     set(ENV{LC_ALL} C)
+diff --git a/src/os/unix/unix.cpp b/src/os/unix/unix.cpp
+index 6032756..474b81e 100644
+--- a/src/os/unix/unix.cpp
++++ b/src/os/unix/unix.cpp
+@@ -25,6 +25,10 @@
+ #include <SDL.h>
+ #endif
+ 
++#ifdef __ANDROID__
++#include <SDL_android.h>
++#endif
++
+ #ifdef WITH_ICONV
+ #include <iconv.h>
+ #endif /* WITH_ICONV */
+@@ -35,7 +39,7 @@
+ 
+ #ifdef __APPLE__
+ #	include <sys/mount.h>
+-#elif (defined(_POSIX_VERSION) && _POSIX_VERSION >= 200112L) || defined(__GLIBC__)
++#elif ((defined(_POSIX_VERSION) && _POSIX_VERSION >= 200112L) || defined(__GLIBC__)) && !defined(__ANDROID__)
+ #	define HAS_STATVFS
+ #endif
+ 
+@@ -229,6 +233,11 @@ void OSOpenBrowser(const std::string &url)
+ #elif !defined( __APPLE__)
+ void OSOpenBrowser(const std::string &url)
+ {
++#ifdef __ANDROID__
++	SDL_ANDROID_OpenExternalWebBrowser(url.c_str());
++	return;
++#endif
++
+ 	pid_t child_pid = fork();
+ 	if (child_pid != 0) return;
+ 
+diff --git a/src/os/unix/unix_main.cpp b/src/os/unix/unix_main.cpp
+index 93b57fa..da99ded 100644
+--- a/src/os/unix/unix_main.cpp
++++ b/src/os/unix/unix_main.cpp
+@@ -18,6 +18,11 @@
+ 
+ #include "../../safeguards.h"
+ 
++#ifdef __ANDROID__
++#define main SDL_main
++extern "C" int CDECL main(int, char *[]);
++#endif
++
+ int CDECL main(int argc, char *argv[])
+ {
+ 	/* Make sure our arguments contain only valid UTF-8 characters. */
+
