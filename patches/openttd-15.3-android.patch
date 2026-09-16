@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 2891bee..a3a3d62 100644
+index 2891bee..b4ade80 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -75,6 +75,7 @@ add_custom_target(find_version
@@ -70,12 +70,14 @@ index 2891bee..a3a3d62 100644
  add_executable(openttd_test)
  set_target_properties(openttd PROPERTIES OUTPUT_NAME "${BINARY_NAME}")
  # All other files are added via target_sources()
-@@ -340,6 +368,10 @@ endif()
+@@ -340,6 +368,12 @@ endif()
  
  include(3rdparty/llvm/CheckAtomic)
  
 +if(ANDROID)
-+    target_link_libraries(openttd_lib ${EXPAT_LIBRARY})
++    # FreeType itself was built with HarfBuzz support, so keep the library as
++    # a transitive link dependency without enabling OpenTTD's ICU layouter.
++    target_link_libraries(openttd_lib ${EXPAT_LIBRARY} ${Harfbuzz_LIBRARY})
 +endif()
 +
  if(APPLE)
