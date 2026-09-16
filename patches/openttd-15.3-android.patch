@@ -179,21 +179,10 @@ index cbfb466..0df880e 100644
      set(SAVED_LC_ALL "$ENV{LC_ALL}")
      set(ENV{LC_ALL} C)
 diff --git a/src/os/unix/unix.cpp b/src/os/unix/unix.cpp
-index 6032756..474b81e 100644
+index 6032756..72ba53d 100644
 --- a/src/os/unix/unix.cpp
 +++ b/src/os/unix/unix.cpp
-@@ -25,6 +25,10 @@
- #include <SDL.h>
- #endif
- 
-+#ifdef __ANDROID__
-+#include <SDL_android.h>
-+#endif
-+
- #ifdef WITH_ICONV
- #include <iconv.h>
- #endif /* WITH_ICONV */
-@@ -35,7 +39,7 @@
+@@ -35,7 +35,7 @@
  
  #ifdef __APPLE__
  #	include <sys/mount.h>
@@ -202,17 +191,26 @@ index 6032756..474b81e 100644
  #	define HAS_STATVFS
  #endif
  
-@@ -229,6 +233,11 @@ void OSOpenBrowser(const std::string &url)
+@@ -229,6 +229,12 @@ void OSOpenBrowser(const std::string &url)
  #elif !defined( __APPLE__)
  void OSOpenBrowser(const std::string &url)
  {
 +#ifdef __ANDROID__
-+	SDL_ANDROID_OpenExternalWebBrowser(url.c_str());
++	/* The Android SDL wrapper does not expose the non-standard
++	 * SDL_ANDROID_OpenExternalWebBrowser symbol used by older ports. */
++	(void)url;
 +	return;
-+#endif
-+
++#else
  	pid_t child_pid = fork();
  	if (child_pid != 0) return;
+ 
+@@ -239,6 +245,7 @@ void OSOpenBrowser(const std::string &url)
+ 	execvp(args[0], const_cast<char * const *>(args));
+ 	Debug(misc, 0, "Failed to open url: {}", url);
+ 	exit(0);
++#endif
+ }
+ #endif /* __APPLE__ */
  
 diff --git a/src/os/unix/unix_main.cpp b/src/os/unix/unix_main.cpp
 index 93b57fa..da99ded 100644
@@ -230,4 +228,3 @@ index 93b57fa..da99ded 100644
  int CDECL main(int argc, char *argv[])
  {
  	/* Make sure our arguments contain only valid UTF-8 characters. */
-
