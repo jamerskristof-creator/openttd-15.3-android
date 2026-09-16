@@ -26,3 +26,9 @@ sed -i 's/openttd-data-14\.1-0\.zip\.xz/openttd-data-15.3-0.zip.xz/' "$app_dir/A
 
 rm -f "$builder_dir/project/jni/application/src"
 ln -s openttd "$builder_dir/project/jni/application/src"
+
+# The upstream OpenSSL helper patches 32-bit generated headers into one
+# multi-architecture header. Our APK is arm64-only, so its already-correct
+# generated 64-bit header must be kept as-is.
+sed -i '/patch -p1 < opensslconf.h.patch/c\[ "$ARCH_LIST" = "arm64-v8a" ] || patch -p1 < opensslconf.h.patch || exit 1' \
+  "$builder_dir/project/jni/openssl/compile.sh"
