@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 2891bee..6c07010 100644
+index 2891bee..a3a3d62 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -75,6 +75,7 @@ add_custom_target(find_version
@@ -10,7 +10,7 @@ index 2891bee..6c07010 100644
                  -P "${CMAKE_SOURCE_DIR}/cmake/scripts/FindVersion.cmake"
          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
          BYPRODUCTS ${GENERATED_SOURCE_FILES}
-@@ -107,6 +108,13 @@ if(OPTION_TOOLS_ONLY)
+@@ -107,6 +108,19 @@ if(OPTION_TOOLS_ONLY)
      return()
  endif()
  
@@ -19,12 +19,18 @@ index 2891bee..6c07010 100644
 +    if(TARGET SDL2 AND NOT TARGET SDL2::SDL2)
 +        add_library(SDL2::SDL2 ALIAS SDL2)
 +    endif()
++    # AndroidSDL advertises every dependency as found. Override ICU and
++    # HarfBuzz so the fallback path below is actually selected.
++    set(Harfbuzz_FOUND FALSE)
++    set(HARFBUZZ_FOUND FALSE)
++    set(ICU_i18n_FOUND FALSE)
++    set(ICU_uc_FOUND FALSE)
 +endif()
 +
  if(APPLE)
  	# Avoid searching for headers in Frameworks, and libraries in LIBDIR.
  	set(CMAKE_FIND_FRAMEWORK LAST)
-@@ -142,13 +150,21 @@ if(NOT OPTION_DEDICATED)
+@@ -142,13 +156,21 @@ if(NOT OPTION_DEDICATED)
          find_package(Allegro)
          if(NOT APPLE)
              find_package(Freetype)
@@ -49,7 +55,7 @@ index 2891bee..6c07010 100644
          endif()
      endif()
      find_package(OpusFile)
-@@ -237,7 +253,13 @@ include_directories(${CMAKE_SOURCE_DIR}/src/3rdparty/squirrel/include)
+@@ -237,7 +259,13 @@ include_directories(${CMAKE_SOURCE_DIR}/src/3rdparty/squirrel/include)
  include(MSVCFilters)
  
  add_library(openttd_lib OBJECT ${GENERATED_SOURCE_FILES})
@@ -64,7 +70,7 @@ index 2891bee..6c07010 100644
  add_executable(openttd_test)
  set_target_properties(openttd PROPERTIES OUTPUT_NAME "${BINARY_NAME}")
  # All other files are added via target_sources()
-@@ -340,6 +362,10 @@ endif()
+@@ -340,6 +368,10 @@ endif()
  
  include(3rdparty/llvm/CheckAtomic)
  
