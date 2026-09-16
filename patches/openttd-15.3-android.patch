@@ -178,6 +178,19 @@ index cbfb466..0df880e 100644
      # Make sure LC_ALL is set to something desirable
      set(SAVED_LC_ALL "$ENV{LC_ALL}")
      set(ENV{LC_ALL} C)
+diff --git a/src/ini.cpp b/src/ini.cpp
+index 4c87f08..716d81d 100644
+--- a/src/ini.cpp
++++ b/src/ini.cpp
+@@ -17,7 +17,7 @@
+ #	include <emscripten.h>
+ #endif
+ 
+-#if (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 199309L) || (defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 500)
++#if defined(__ANDROID__) || (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 199309L) || (defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 500)
+ # include <unistd.h>
+ # include <fcntl.h>
+ #endif
 diff --git a/src/os/unix/unix.cpp b/src/os/unix/unix.cpp
 index 6032756..72ba53d 100644
 --- a/src/os/unix/unix.cpp
