@@ -262,4 +262,15 @@ index 93b57fa..da99ded 100644
 +
  int CDECL main(int argc, char *argv[])
  {
++#ifdef __ANDROID__
++	/* Keep OpenTTD's user data in Android's app-specific external storage.
++	 * This makes savegames, config and custom NewGRFs reachable through ADB
++	 * without requiring root access. OpenTTD appends its own "openttd"
++	 * directory when XDG paths are enabled. */
++	static const char *android_user_dir = "/storage/emulated/0/Android/data/org.openttd.sdl/files";
++	setenv("HOME", android_user_dir, 1);
++	setenv("XDG_DATA_HOME", android_user_dir, 1);
++	setenv("XDG_CONFIG_HOME", android_user_dir, 1);
++#endif
++
  	/* Make sure our arguments contain only valid UTF-8 characters. */
