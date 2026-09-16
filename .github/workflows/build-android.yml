@@ -64,6 +64,18 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=OpenTTD Android Debug,O=OpenTTD Android,C=BE"
 
+      - name: Save native dependency cache
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            builder/project/jni/iconv/include
+            builder/project/jni/iconv/lib
+            builder/project/jni/icuuc/include
+            builder/project/jni/icuuc/lib
+            builder/project/jni/icuuc/share/icu
+            builder/project/obj
+          key: openttd-15.3-android-arm64-native-v1
+
       - name: Build signed ARM64 APK
         working-directory: builder
         run: |
