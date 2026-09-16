@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 2891bee..d563964 100644
+index 2891bee..6c07010 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -75,6 +75,7 @@ add_custom_target(find_version
@@ -24,7 +24,7 @@ index 2891bee..d563964 100644
  if(APPLE)
  	# Avoid searching for headers in Frameworks, and libraries in LIBDIR.
  	set(CMAKE_FIND_FRAMEWORK LAST)
-@@ -142,7 +150,9 @@ if(NOT OPTION_DEDICATED)
+@@ -142,13 +150,21 @@ if(NOT OPTION_DEDICATED)
          find_package(Allegro)
          if(NOT APPLE)
              find_package(Freetype)
@@ -35,7 +35,21 @@ index 2891bee..d563964 100644
              find_package(Fluidsynth)
              if(Freetype_FOUND)
                  find_package(Fontconfig)
-@@ -237,7 +247,13 @@ include_directories(${CMAKE_SOURCE_DIR}/src/3rdparty/squirrel/include)
+             endif()
+-            find_package(Harfbuzz)
+-            find_package(ICU OPTIONAL_COMPONENTS i18n uc)
++            # ICU's data is not available yet while Android loads this shared
++            # library and runs global constructors. OpenTTD has a built-in
++            # Unicode iterator fallback, so use it on Android to avoid a
++            # startup crash before SDL_main is reached.
++            if(NOT ANDROID)
++                find_package(Harfbuzz)
++                find_package(ICU OPTIONAL_COMPONENTS i18n uc)
++            endif()
+         endif()
+     endif()
+     find_package(OpusFile)
+@@ -237,7 +253,13 @@ include_directories(${CMAKE_SOURCE_DIR}/src/3rdparty/squirrel/include)
  include(MSVCFilters)
  
  add_library(openttd_lib OBJECT ${GENERATED_SOURCE_FILES})
@@ -50,7 +64,7 @@ index 2891bee..d563964 100644
  add_executable(openttd_test)
  set_target_properties(openttd PROPERTIES OUTPUT_NAME "${BINARY_NAME}")
  # All other files are added via target_sources()
-@@ -340,6 +356,10 @@ endif()
+@@ -340,6 +362,10 @@ endif()
  
  include(3rdparty/llvm/CheckAtomic)
  
